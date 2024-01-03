@@ -1,45 +1,87 @@
 # multi-valued logic (three)
 # %%
-function land(P,Q)
-    min(P,Q)
-end
-function lor(P,Q)
-    max(P,Q)
+
+# Constants for the three truth values
+const T_num = 1.0
+const F_num = 0.0
+const U_num = 0.5
+
+# Define a custom type for three-valued logic
+struct ThreeValuedLogic
+    value::Symbol
+    number::Float64
+    # Constructor with constraint
+    function ThreeValuedLogic(value::Symbol, number::Float64)
+        if number ∈ (F_num, U_num, T_num)
+            return new(value, number)
+        else
+            throw(ArgumentError("The 'number' $number is invalid"))
+        end
+    end
 end
 
-function simpleNegation(P)
-    1 - P
+const _true = ThreeValuedLogic(:True, T_num)
+const _false = ThreeValuedLogic(:False, F_num)
+const _unknown = ThreeValuedLogic(:Unknown, U_num)
+
+#%%
+
+function land(P::Float64, Q::Float64)# Logical and function
+    min(P, Q)
 end
-function totalNegThree(x)
-    (x == 0.0) * 1 + (x == 0.5) * 0 + (x == 1.0) * 0
-end
-function partialNegThree(x)
-    (x == 0.0) * 1 + (x == 0.5) * 1 + (x == 1.0) * 0
-end
-function partialNegThreeByTripleNeg(P)
-    simpleNegation(totalNegation(simpleNegation(P)))
+function lor(P::Float64, Q::Float64)# Logical or function
+    max(P, Q)
 end
 
-totalNegation(P) = totalNegThree(P)
-partialNegation(P) = partialNegThree(P)
-# function totalNegation(P)
-#     if P >= .5
-#         return 0
-#     else
-#         return 1
-#     end
-# end
-# function partialNegation(P)
-#     if P <= .5
-#         return 1
-#     else
-#         return 0
-#     end
-# end
+function simpleNegation(P::Float64)
+    # Tabel
+    # T | F
+    # U | U
+    # F | T
+    T_num - P
+end
+function totalNegThree(x::Float64)
+    # Tabel
+    # T | F
+    # U | F
+    # F | T
+    (x == F_num) * T_num + (x == U_num) * F_num + (x == T_num) * F_num
+end
+function partialNegThree(x::Float64)
+    # Tabel
+    # T | F
+    # U | T
+    # F | T
+    (x == F_num) * T_num + (x == U_num) * T_num + (x == T_num) * F_num
+end
+#%%
+function totalNegation(P::Float64)
+    condition = (P >= U_num)
+    if condition
+        return F_num
+    else
+        return T_num
+    end
+end
+function totalNegation2(P::Float64)
+    condition = (P >= U_num)
+    return (condition) * F_num + !condition * T_num
+end
+
+#%%
+
+function partialNegation(P)
+    condition = (P <= U_num)
+    if condition
+        return T_num
+    else
+        return F_num
+    end
+end
+#%%
 
 NAND(P,Q) = simpleNegation(land(P,Q))
 NOR(P,Q) = simpleNegation(lor(P,Q))
-NAND.(P,P)
 
 function simpleImplication(P,Q)
     lor(simpleNegation(P),Q)
@@ -86,7 +128,7 @@ function looseExcludedMiddle(P)
 end# simpleNegation(looseContradiction())
 
 function ImplyLukasiewicz(P,Q)
-    min(1, 1-P+Q)
+    min(T_num, T_num - P + Q)
 end
 ImplyInvLukasiewicz(P,Q) = ImplyLukasiewicz(Q,P)
 
@@ -107,11 +149,12 @@ function equivalence(P,Q;imply,land=land)
     land(imply(P,Q),imply(Q,P))
 end
 
-simpleEquiv(P,Q) = equivalence.(P,Q;imply=simpleImplication)
+simpleEquiv(P,Q) = equivalence(P,Q;imply=simpleImplication)
 
-EquivLukasiewicz(P,Q) = equivalence.(P,Q;imply=ImplyLukasiewicz)
+EquivLukasiewicz(P,Q) = equivalence(P,Q;imply=ImplyLukasiewicz)
 
-lnotLukasiewicz(P) = simpleImplication.(P,land.(P, totalNegation.(P)))#20221220
+# logical not in Lukasiewicz logic is equivalent to the simple negation (not).
+lnotLukasiewicz(P) = simpleImplication(P,land(P, totalNegation(P)))#20221220
 
 function modusPonens(P,Q;
     AND=land,ImplyPQ=simpleImplication,Therefore=simpleImplication)
@@ -163,13 +206,13 @@ end
 
 #%%
 # ALL UNKNOWN
-U = Iterators.repeated(0.5,3)
+U = Iterators.repeated(U_num,3)
 
 n2 = 2
 P = 0:(1/n2):1
 Q = 0:(1/n2):1
 
-f00u(P) = land(0.5, totalAffirmation(P))
+f00u(P) = land(U_num, totalAffirmation(P))
 simpleContradiction(P) = land(P, simpleNegation(P))
 LogicalFunctionsThree = [
     land.(P, totalNegation.(P)),
@@ -203,7 +246,7 @@ LogicalFunctionsThree = [
 ]
 #%%
 if abspath(PROGRAM_FILE) == @__FILE__
-    #Test code
+    # Test code
     @show genOneVarAll(3) == LogicalFunctionsThree
     # double negation
     @show partialNegation.(partialNegation.(P)) == totalAffirmation.(P)
@@ -218,21 +261,28 @@ if abspath(PROGRAM_FILE) == @__FILE__
     @show partialNegation.(P) == partialNegThree.(P) == partialNegThreeByTripleNeg.(P)
 end
 
-#%%two-variable functions
+#%% two-variable functions
 # basis
+# 反転を考えると右下4分の1を考えるだけで済む
+# Given the inversion, we only need to consider the lower right quarter.
 f000000001(P,Q) = land(totalAffirmation(P),totalAffirmation(Q))
 f000000010(P,Q) = land(totalAffirmation(P),looseContradiction(Q))
-f000010000(P,Q) = land(looseContradiction(P),looseContradiction(Q))#for Lukasiewicz imply
+f000010000(P,Q) = land(looseContradiction(P),looseContradiction(Q))# for Lukasiewicz imply
+
+# inversion across P = Q
+f000001000(P,Q) = f000000010(Q,P)
+# inversion with respect to Q
+f000000100(P,Q) = f000000001(P,simpleNegation(Q))
+# other two examples
+f000100000(P,Q) = f000000010(simpleNegation(Q),P)
+f100000000(P,Q) = f000000001(simpleNegation(P),simpleNegation(Q))
+
+# u basis
 f00000000u(P,Q) = land(f00u(P),f00u(Q))
 f0000000u0(P,Q) = land(f00u(P),simpleContradiction(Q))
 f0000u0000(P,Q) = land(simpleContradiction(P),simpleContradiction(Q))
 
 f010111010(P,Q) = lor(looseContradiction(P),looseContradiction(Q))
-f111u110u1(P,Q) = lor(f000010000(P,Q),simpleImplication(P,Q))
+f111u110u1(P,Q) = lor(f000010000(P,Q),simpleImplication(P,Q))# ImplyLukasiewicz
 
-f000001000(P,Q) = f000000010(Q,P)
-f000000100(P,Q) = f000000001(P,simpleNegation(Q))
-f000100000(P,Q) = f000000010(simpleNegation(Q),P)
-f100000000(P,Q) = f000000001(simpleNegation(P),simpleNegation(Q))
-# f0(P,Q) =  land(f00u(P),simpleContradiction(Q))
-matrixof(f0,P,Q)
+println("MultiValuedLogic.jl imported")

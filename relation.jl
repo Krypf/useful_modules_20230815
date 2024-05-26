@@ -10,6 +10,15 @@ end
 function identity_relation(vector::Vector)
     return [(vj, vj) for vj in vector]
 end
+function lattice_point(n::Int64; start=0::Int64)
+    X =start:(n+start-1)
+    return [p for p in product(X,X)]
+end
+
+function direct_prod(X,Y)
+    return [(x,y) for x in X, y in Y]
+end
+
 function composition_of_relation(R::Vector, S::Vector)
     first_type = Base.tuple_type_head(eltype(R))
     second_type = Base.tuple_type_head(Base.tuple_type_tail(eltype(S)))
@@ -24,21 +33,17 @@ function composition_of_relation(R::Vector, S::Vector)
 end
 #%%
 
-function unit(n; start=0)#the identity element
-    return Set([(j,j) for j in start:(n+start-1)])
+function identity_relation_set(n::Int64; start=0)#the identity element
+    return Set(identity_relation(n; start))
+end
+function lattice_point_set(n::Int64; start=0::Int64)#faster
+    return Set(lattice_point(n; start))
 end
 
-
-function lattice_point(n::Int64;start=0::Int64)#faster
-    X =start:(n+start-1)
-    return Set([p for p in product(X,X)])
+function direct_prod_set(X,Y)
+    return Set(direct_prod(X,Y))
 end
-
-function direct_prod(X,Y)
-    return Set([(x,y) for x in X, y in Y])
-end
-function composition(
-    R::Vector{Tuple{Int64, Int64}},S::Vector{Tuple{Int64, Int64}})
+function composition(R::Vector{Tuple{Int64, Int64}},S::Vector{Tuple{Int64, Int64}})
     _ans = Set{Tuple{Int64, Int64}}()
     for x in R, y in S
         if (x[2] == y[1])
@@ -52,11 +57,11 @@ function FindInvertible(n::Int64)
     if n ∉ 1:3
         throw(DomainError(n, "n must be in {1, 2, 3}"))
     end
-    X2 = lattice_point(n; start=0)
+    X2 = lattice_point_set(n; start=0)
     PX2 = powerset(collect(X2))
     itr = 0# the number of the invertibles
     for R in PX2, S in PX2 
-        if composition(R,S) == unit(n)
+        if composition(R,S) == identity_relation_set(n)
             @show R, S
             itr += 1
         end
@@ -87,10 +92,10 @@ function issymmetric(R)
 end
 #%%
 function FindEquivalence(n)
-    X2 = lattice_point(n; start=0)
+    X2 = lattice_point_set(n; start=0)
     PX2 = powerset(collect(X2))
     itr = 0
-    I = unit(n; start=0)
+    I = identity_relation_set(n; start=0)
     for R in PX2
         if (isreflexive(R; identity=I) && istransitive(R) && issymmetric(R))
             @show R

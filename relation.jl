@@ -2,10 +2,32 @@
 using IterTools
 using Combinatorics
 using ProgressMeter
+#%%
 
-function unit(n;start=0)#the identity element
+function identity_relation(n::Int64; start=0)#the identity element
+    return [(j, j) for j in start:(n+start-1)]
+end
+function identity_relation(vector::Vector)
+    return [(vj, vj) for vj in vector]
+end
+function composition_of_relation(R::Vector, S::Vector)
+    first_type = Base.tuple_type_head(eltype(R))
+    second_type = Base.tuple_type_head(Base.tuple_type_tail(eltype(S)))
+    
+    _ans = Vector{Tuple{first_type, second_type}}()
+    for x in R, y in S
+        if (x[2] == y[1])# (a, b) ∈ R and (b, c) ∈ S
+            push!(_ans, (x[1], y[2]))
+        end
+    end
+    return _ans
+end
+#%%
+
+function unit(n; start=0)#the identity element
     return Set([(j,j) for j in start:(n+start-1)])
 end
+
 
 function lattice_point(n::Int64;start=0::Int64)#faster
     X =start:(n+start-1)
@@ -30,7 +52,7 @@ function FindInvertible(n::Int64)
     if n ∉ 1:3
         throw(DomainError(n, "n must be in {1, 2, 3}"))
     end
-    X2 = lattice_point(n;start=0)
+    X2 = lattice_point(n; start=0)
     PX2 = powerset(collect(X2))
     itr = 0# the number of the invertibles
     for R in PX2, S in PX2 
@@ -42,9 +64,12 @@ function FindInvertible(n::Int64)
     return itr
 end
 
-@time for n in 1:3
-    @show n
-    FindInvertible(n)
+function invertible_test()
+    @time for n in 1:3
+        @show n
+        FindInvertible(n)
+    end
+    return 0
 end
 #%%
 function isreflexive(R; identity)
@@ -62,10 +87,10 @@ function issymmetric(R)
 end
 #%%
 function FindEquivalence(n)
-    X2 = lattice_point(n;start=0)
+    X2 = lattice_point(n; start=0)
     PX2 = powerset(collect(X2))
     itr = 0
-    I = unit(n;start=0)
+    I = unit(n; start=0)
     for R in PX2
         if (isreflexive(R; identity=I) && istransitive(R) && issymmetric(R))
             @show R
